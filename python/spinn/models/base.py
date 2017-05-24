@@ -20,6 +20,7 @@ from spinn.util.misc import Args
 from spinn.util.logparse import parse_flags
 
 import spinn.rl_spinn
+import spinn.deep_spinn
 import spinn.spinn_core_model
 import spinn.plain_rnn
 import spinn.cbow
@@ -232,7 +233,7 @@ def get_flags():
                          "If set, load GloVe-formatted embeddings from here.")
 
     # Model architecture settings.
-    gflags.DEFINE_enum("model_type", "RNN", ["CBOW", "RNN", "SPINN", "RLSPINN"], "")
+    gflags.DEFINE_enum("model_type", "RNN", ["CBOW", "RNN", "SPINN", "RLSPINN", "DeepSPINN"], "")
     gflags.DEFINE_integer("gpu", -1, "")
     gflags.DEFINE_integer("model_dim", 8, "")
     gflags.DEFINE_integer("word_embedding_dim", 8, "")
@@ -392,6 +393,8 @@ def init_model(FLAGS, logger, initial_embeddings, vocab_size, num_classes, data_
         build_model = spinn.plain_rnn.build_model
     elif FLAGS.model_type == "SPINN":
         build_model = spinn.spinn_core_model.build_model
+    elif FLAGS.model_type == "DeepSPINN":
+        build_model = spinn.deep_spinn.build_model
     elif FLAGS.model_type == "RLSPINN":
         build_model = spinn.rl_spinn.build_model
     else:
