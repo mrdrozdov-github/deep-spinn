@@ -49,5 +49,41 @@ class DeepSPINN(SPINN):
     pass
 
 
-class BaseModel(_BaseModel):
-    pass
+class BaseModel(nn.Module):
+
+    optimize_transition_loss = True
+
+    def __init__(self, *args, **kwargs):
+        super(BaseModel, self).__init__()
+
+        # Necessary properties.
+
+        self.use_sentence_pair = kwargs.get('use_sentence_pair')
+
+
+        # Multilayer Init
+
+        n_layers = 1
+
+        self.layers = []
+        for i_layer in range(n_layers):
+            layer_name = "layer_{}".format(i_layer)
+            setattr(self, layer_name, _BaseModel(*args, **kwargs))
+            self.layers.append(getattr(self, layer_name))
+
+    @property
+    def transition_loss(self):
+        return self.layers[0].transition_loss
+
+    @property
+    def transition_acc(self):
+        return self.layers[0].transition_acc
+
+    def get_transitions_per_example(self, style="preds"):
+        return self.layers[0].get_transitions_per_example(style)
+
+    def forward(self, sentences, transitions, y_batch=None,
+                use_internal_parser=False, validate_transitions=True):
+
+        return self.layers[0](sentences, transitions, y_batch,
+            use_internal_parser, validate_transitions)

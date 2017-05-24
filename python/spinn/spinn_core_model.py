@@ -649,6 +649,9 @@ class BaseModel(nn.Module):
 
         return output
 
+    def get_transitions_per_example(self, style="preds"):
+        return self.spinn.get_transitions_per_example(style)
+
     # --- Sentence Style Switches ---
 
     def unwrap(self, sentences, transitions):
