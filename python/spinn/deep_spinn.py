@@ -110,14 +110,6 @@ class BaseModel(nn.Module):
             # layer_name = "layer_inbetween_{}".format(i_layer)
             # setattr(self, layer_name, nn.Linear(model_dim, model_dim))
 
-    @property
-    def transition_loss(self):
-        return self.layers[-1].transition_loss
-
-    @property
-    def transition_acc(self):
-        return self.layers[-1].transition_acc
-
     def get_transitions_per_example(self, style="preds"):
         return self.layers[-1].get_transitions_per_example(style)
 
@@ -134,11 +126,52 @@ class BaseModel(nn.Module):
 
         assert use_internal_parser == False, "Deep SPINN does not support predicted transitions yet."
 
-        internal_state = None
+        final_layer = self.layers[-1]
+        examples = []
 
+        # Initialize Input
         for i_layer in range(self.num_spinn_layers):
-            spinn = self.layers[i_layer]
+            layer = self.layers[i_layer]
+            example = layer.forward(sentences, transitions, y_batch, use_internal_parser, validate_transitions, run_spinn=False)
+            example = layer.spinn.forward_init(example)
+            examples.append(example)
 
-            outp = spinn(sentences, transitions, y_batch, use_internal_parser, validate_transitions)
+        inp_transitions = examples[-1].transitions
+        batch_size = inp_transitions.shape[0]
+        run_internal_parser = True
+        num_transitions = inp_transitions.shape[1]
+        batch_size = inp_transitions.shape[0]
 
-        return outp
+        # Other initialization
+        for i_layer in range(self.num_spinn_layers):
+            layer = self.layers[i_layer]
+            layer.spinn.invalid_count = np.zeros(batch_size) # TODO: Probably doesn't make sense to have this for each layer.
+            layer.spinn.reset_state()
+
+        # Multi-layer Transition Loop
+        # ===========================
+
+        for t_step in range(num_transitions):
+            internal_state = None
+            for i_layer in range(self.num_spinn_layers):
+                layer = self.layers[i_layer]
+                layer.spinn.reset_substate()
+                layer.set_external_state(internal_state)
+                layer.spinn.step(inp_transitions, run_internal_parser,
+                    use_internal_parser, validate_transitions, t_step)
+                internal_state = layer.get_internal_state()
+
+        # Loss Phase (Final Layer Only)
+        # =============================
+
+        self.transition_acc, self.transition_loss = final_layer.spinn.loss_phase(batch_size)
+
+        # 
+
+        h_list = [stack[-1] for stack in final_layer.spinn.stacks]
+        h = final_layer.wrap(h_list)
+        features = final_layer.build_features(h)
+        output = final_layer.mlp(features)
+        final_layer.output_hook(output, sentences, transitions, y_batch)
+
+        return output

@@ -632,7 +632,7 @@ class BaseModel(nn.Module):
         pass
 
     def forward(self, sentences, transitions, y_batch=None,
-                use_internal_parser=False, validate_transitions=True):
+                use_internal_parser=False, validate_transitions=True, run_spinn=True):
         example = self.unwrap(sentences, transitions)
 
         b, l = example.tokens.size()[:2]
@@ -657,25 +657,31 @@ class BaseModel(nn.Module):
 
         example.bufs = buffers
 
-        h, transition_acc, transition_loss = self.run_spinn(
-            example, use_internal_parser, validate_transitions)
+        if run_spinn:
+            h, transition_acc, transition_loss = self.run_spinn(
+                example, use_internal_parser, validate_transitions)
 
-        self.spinn_outp = h
+            self.spinn_outp = h
 
-        self.transition_acc = transition_acc
-        self.transition_loss = transition_loss
+            self.transition_acc = transition_acc
+            self.transition_loss = transition_loss
 
-        # Build features
-        features = self.build_features(h)
+            # Build features
+            features = self.build_features(h)
 
-        output = self.mlp(features)
+            output = self.mlp(features)
 
-        self.output_hook(output, sentences, transitions, y_batch)
+            self.output_hook(output, sentences, transitions, y_batch)
 
-        return output
+            return output
+        else:
+            return example
 
     def get_transitions_per_example(self, style="preds"):
         return self.spinn.get_transitions_per_example(style)
+
+    def get_internal_state(self):
+        return self.spinn.internal_state
 
     def set_external_state(self, external_state):
         self.spinn.external_state = external_state
