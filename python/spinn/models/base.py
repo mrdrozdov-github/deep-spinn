@@ -441,6 +441,7 @@ def init_model(FLAGS, logger, initial_embeddings, vocab_size, num_classes, data_
     composition_args.tracker_size = FLAGS.tracking_lstm_hidden_dim
     composition_args.use_internal_parser = FLAGS.use_internal_parser
     composition_args.transition_weight = FLAGS.transition_weight
+    composition_args.composition_ln = FLAGS.composition_ln
     composition_args.wrap_items = lambda x: torch.cat(x, 0)
     composition_args.extract_h = lambda x: x
     composition_args.extract_c = None
@@ -450,6 +451,7 @@ def init_model(FLAGS, logger, initial_embeddings, vocab_size, num_classes, data_
         composition_args.extract_h = lambda x: x.h
         composition_args.extract_c = lambda x: x.c
         composition_args.size = FLAGS.model_dim / 2
+        composition_args.fn = ReduceTreeLSTM
         composition = ReduceTreeLSTM(FLAGS.model_dim / 2,
                                      tracker_size=FLAGS.tracking_lstm_hidden_dim,
                                      use_tracking_in_composition=FLAGS.use_tracking_in_composition,
@@ -460,8 +462,10 @@ def init_model(FLAGS, logger, initial_embeddings, vocab_size, num_classes, data_
                 batch_size = len(lefts)
                 ret = torch.cat(lefts, 0) + F.tanh(torch.cat(rights, 0))
                 return torch.chunk(ret, batch_size, 0)
+        composition_args.fn = ReduceTanh
         composition = ReduceTanh()
     elif FLAGS.reduce == "treegru":
+        composition_args.fn = ReduceTreeGRU
         composition = ReduceTreeGRU(FLAGS.model_dim,
                                     FLAGS.tracking_lstm_hidden_dim,
                                     FLAGS.use_tracking_in_composition)

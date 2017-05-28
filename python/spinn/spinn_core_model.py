@@ -149,6 +149,18 @@ class SPINN(nn.Module):
     def reset_state(self):
         self.memories = []
 
+    def reset_substate(self):
+        # Memories
+        # ========
+        # Keep track of key values to determine accuracy and loss.
+        self.memory = {}
+
+        # State from the current layer. Used in deep versions of SPINN.
+        self.internal_state = None
+
+        # State from the previous layer. Used in deep versions of SPINN.
+        self.external_state = None
+
     def forward(self, example, use_internal_parser=False, validate_transitions=True):
         self.n_tokens = (example.tokens.data != 0).long().sum(1).view(-1).tolist()
 
@@ -293,10 +305,20 @@ class SPINN(nn.Module):
 
     def reduce_phase(self, lefts, rights, trackings, stacks):
         if len(stacks) > 0:
-            reduced = iter(self.reduce(
-                lefts, rights, trackings))
+            if self.external_state is not None:
+                reduced = self.reduce(
+                    lefts, rights, trackings, self.external_state)
+            else:
+                reduced = self.reduce(
+                    lefts, rights, trackings)
+
+            # TODO: This will need to be concatenated in deep spinn. Perhaps
+            # we can prevent unbundling inside reduce function.
+            self.internal_state = reduced
+
+            _reduced = iter(reduced)
             for stack in stacks:
-                new_stack_item = next(reduced)
+                new_stack_item = next(_reduced)
                 stack.append(new_stack_item)
 
     def reduce_phase_hook(self, lefts, rights, trackings, reduce_stacks):
@@ -317,6 +339,7 @@ class SPINN(nn.Module):
         # ===============
 
         for t_step in range(num_transitions):
+            self.reset_substate()
             self.step(inp_transitions, run_internal_parser,
                 use_internal_parser, validate_transitions, t_step)
 
@@ -369,11 +392,6 @@ class SPINN(nn.Module):
         # A mask based on SKIP transitions.
         cant_skip = np.array(transitions) != T_SKIP
         must_skip = np.array(transitions) == T_SKIP
-
-        # Memories
-        # ========
-        # Keep track of key values to determine accuracy and loss.
-        self.memory = {}
 
         # Prepare tracker input.
         if self.debug and any(len(buf) < 1 or len(stack)
@@ -651,6 +669,9 @@ class BaseModel(nn.Module):
 
     def get_transitions_per_example(self, style="preds"):
         return self.spinn.get_transitions_per_example(style)
+
+    def set_external_state(self, external_state):
+        self.spinn.external_state = external_state
 
     # --- Sentence Style Switches ---
 

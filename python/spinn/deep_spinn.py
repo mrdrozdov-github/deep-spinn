@@ -75,15 +75,34 @@ class BaseModel(nn.Module):
         # Necessary properties.
         self.use_sentence_pair = kwargs.get('use_sentence_pair')
 
+        # Composition Unit
+        composition_args = kwargs.get('composition_args')
+        composition_args.composition = None
 
         # Multilayer Init
         n_layers = 1
 
         self.layers = []
         for i_layer in range(n_layers):
+            _kwargs = copy.deepcopy(kwargs)
+
+            _composition_args = _kwargs.get('composition_args')
+
+            if i_layer == 0:
+                _composition_args.external_size = None
+            else:
+                _composition_args.external_size = _composition_args.size
+
+            _kwargs['composition_args'].composition = _composition_args.fn(
+                size=_composition_args.size,
+                tracker_size=_composition_args.tracker_size,
+                external_size=_composition_args.external_size,
+                use_tracking_in_composition=_composition_args.use_tracking_in_composition,
+                composition_ln=_composition_args.composition_ln)
+
             # SPINN Layer
             layer_name = "layer_{}".format(i_layer)
-            setattr(self, layer_name, _BaseModel(*args, **kwargs))
+            setattr(self, layer_name, _BaseModel(*args, **_kwargs))
             self.layers.append(getattr(self, layer_name))
 
             # In Between Layer
