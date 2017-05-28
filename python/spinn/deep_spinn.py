@@ -16,6 +16,19 @@ from spinn.spinn_core_model import BaseModel as _BaseModel
 from spinn.spinn_core_model import SPINN
 
 
+"""
+
+TODO:
+
+- [ ] Each layer should have its own projection layer.
+- [ ] Optionally connect projection layers.
+- [ ] Add linear transform between layers when doing REDUCE.
+- [ ] Remove unnecessary parameters. There are too many MLPs!
+- [ ] Enable `use_internal_parser` flag.
+
+"""
+
+
 def build_model(data_manager, initial_embeddings, vocab_size,
                 num_classes, FLAGS, context_args, composition_args):
     model_cls = BaseModel
