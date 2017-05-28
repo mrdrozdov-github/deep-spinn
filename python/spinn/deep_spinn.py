@@ -50,26 +50,45 @@ class DeepSPINN(SPINN):
 
 
 class BaseModel(nn.Module):
+    """
+    This model is inspired by `Irsoy and Cardie. Deep Recursive Neural 
+    Networks for Compositionality in Language. 2014`:
+    http://www.cs.cornell.edu/~oirsoy/drsv.htm
+
+    A Deep SPINN has multiple layers of SPINN, where each successive layer
+    incorporates the top element of the stack of the previous layer during
+    the REDUCE operation. Each layer has an independent projection layer,
+    although it should be optional to treat each layer's input as different
+    hidden states in an MLP or RNN. Each SPINN layer also has an independent
+    tracking LSTM, any of which has hidden states that can be used as input
+    to predict the next transition.
+    """
 
     optimize_transition_loss = True
 
     def __init__(self, *args, **kwargs):
         super(BaseModel, self).__init__()
 
-        # Necessary properties.
+        # Local Properties
+        model_dim = kwargs.get('model_dim')
 
+        # Necessary properties.
         self.use_sentence_pair = kwargs.get('use_sentence_pair')
 
 
         # Multilayer Init
-
         n_layers = 1
 
         self.layers = []
         for i_layer in range(n_layers):
+            # SPINN Layer
             layer_name = "layer_{}".format(i_layer)
             setattr(self, layer_name, _BaseModel(*args, **kwargs))
             self.layers.append(getattr(self, layer_name))
+
+            # In Between Layer
+            # layer_name = "layer_inbetween_{}".format(i_layer)
+            # setattr(self, layer_name, nn.Linear(model_dim, model_dim))
 
     @property
     def transition_loss(self):
@@ -84,6 +103,16 @@ class BaseModel(nn.Module):
 
     def forward(self, sentences, transitions, y_batch=None,
                 use_internal_parser=False, validate_transitions=True):
+        """
+
+        There are L x N "inputs", which is the number of layers by the number of tokens.
+        Each of these will need an affine transformation using one of the L linear layers.
+
+        Each step/reduce will need this input. Can be done by modifying the buffer/stack.
+
+        """
+
+        assert use_internal_parser == False, "Deep SPINN does not support predicted transitions yet."
 
         return self.layers[0](sentences, transitions, y_batch,
             use_internal_parser, validate_transitions)
