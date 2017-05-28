@@ -42,6 +42,7 @@ def build_model(data_manager, initial_embeddings, vocab_size,
                      mlp_ln=FLAGS.mlp_ln,
                      context_args=context_args,
                      composition_args=composition_args,
+                     num_spinn_layers=FLAGS.num_spinn_layers,
                      )
 
 
@@ -70,7 +71,8 @@ class BaseModel(nn.Module):
         super(BaseModel, self).__init__()
 
         # Local Properties
-        model_dim = kwargs.get('model_dim')
+        self.model_dim = kwargs.get('model_dim')
+        self.num_spinn_layers = kwargs.get('num_spinn_layers')
 
         # Necessary properties.
         self.use_sentence_pair = kwargs.get('use_sentence_pair')
@@ -80,10 +82,9 @@ class BaseModel(nn.Module):
         composition_args.composition = None
 
         # Multilayer Init
-        n_layers = 1
 
         self.layers = []
-        for i_layer in range(n_layers):
+        for i_layer in range(self.num_spinn_layers):
             _kwargs = copy.deepcopy(kwargs)
 
             _composition_args = _kwargs.get('composition_args')
@@ -111,14 +112,14 @@ class BaseModel(nn.Module):
 
     @property
     def transition_loss(self):
-        return self.layers[0].transition_loss
+        return self.layers[-1].transition_loss
 
     @property
     def transition_acc(self):
-        return self.layers[0].transition_acc
+        return self.layers[-1].transition_acc
 
     def get_transitions_per_example(self, style="preds"):
-        return self.layers[0].get_transitions_per_example(style)
+        return self.layers[-1].get_transitions_per_example(style)
 
     def forward(self, sentences, transitions, y_batch=None,
                 use_internal_parser=False, validate_transitions=True):
@@ -133,5 +134,11 @@ class BaseModel(nn.Module):
 
         assert use_internal_parser == False, "Deep SPINN does not support predicted transitions yet."
 
-        return self.layers[0](sentences, transitions, y_batch,
-            use_internal_parser, validate_transitions)
+        internal_state = None
+
+        for i_layer in range(self.num_spinn_layers):
+            spinn = self.layers[i_layer]
+
+            outp = spinn(sentences, transitions, y_batch, use_internal_parser, validate_transitions)
+
+        return outp

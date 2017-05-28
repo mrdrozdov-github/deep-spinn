@@ -161,7 +161,7 @@ class SPINN(nn.Module):
         # State from the previous layer. Used in deep versions of SPINN.
         self.external_state = None
 
-    def forward(self, example, use_internal_parser=False, validate_transitions=True):
+    def forward_init(self, example):
         self.n_tokens = (example.tokens.data != 0).long().sum(1).view(-1).tolist()
 
         if self.debug:
@@ -195,10 +195,40 @@ class SPINN(nn.Module):
         if not hasattr(example, 'transitions'):
             # TODO: Support no transitions. In the meantime, must at least pass dummy transitions.
             raise ValueError('Transitions must be included.')
-        return self.run(example.transitions,
-                        run_internal_parser=True,
-                        use_internal_parser=use_internal_parser,
-                        validate_transitions=validate_transitions)
+
+        return example
+
+    def forward(self, example, use_internal_parser=False, validate_transitions=True):
+        example = self.forward_init(example)
+
+        # Variables
+        inp_transitions = example.transitions
+        run_internal_parser = True
+        num_transitions = inp_transitions.shape[1]
+        batch_size = inp_transitions.shape[0]
+        self.invalid_count = np.zeros(batch_size)
+
+        # Transition Loop
+        # ===============
+
+        for t_step in range(num_transitions):
+            self.reset_substate()
+            self.step(inp_transitions, run_internal_parser,
+                use_internal_parser, validate_transitions, t_step)
+
+        # Loss Phase
+        # ==========
+
+        transition_acc, transition_loss = self.loss_phase(batch_size)
+
+        if self.debug:
+            assert all(len(stack) == 3 for stack in self.stacks), \
+                "Stacks should be fully reduced and have 3 elements: " \
+                "two zeros and the sentence encoding."
+            assert all(len(buf) == 1 for buf in self.bufs), \
+                "Stacks should be fully shifted and have 1 zero."
+
+        return [stack[-1] for stack in self.stacks], transition_acc, transition_loss
 
     def validate(self, transitions, preds, stacks, bufs, zero_padded=True):
         # Note: There is one zero added to bufs, and two zeros added to stacks.
@@ -324,27 +354,9 @@ class SPINN(nn.Module):
     def reduce_phase_hook(self, lefts, rights, trackings, reduce_stacks):
         pass
 
-    def loss_phase_hook(self):
-        pass
-
-    def run(self, inp_transitions, run_internal_parser=False,
-            use_internal_parser=False, validate_transitions=True):
+    def loss_phase(self, batch_size):
         transition_loss = None
         transition_acc = 0.0
-        num_transitions = inp_transitions.shape[1]
-        batch_size = inp_transitions.shape[0]
-        self.invalid_count = np.zeros(batch_size)
-
-        # Transition Loop
-        # ===============
-
-        for t_step in range(num_transitions):
-            self.reset_substate()
-            self.step(inp_transitions, run_internal_parser,
-                use_internal_parser, validate_transitions, t_step)
-
-        # Loss Phase
-        # ==========
 
         if hasattr(self, 'tracker') and hasattr(self, 'transition_net'):
             t_preds = np.concatenate([m['t_preds'] for m in self.memories if 't_preds' in m])
@@ -374,15 +386,10 @@ class SPINN(nn.Module):
 
         self.loss_phase_hook()
 
-        if self.debug:
-            assert all(len(stack) == 3 for stack in self.stacks), \
-                "Stacks should be fully reduced and have 3 elements: " \
-                "two zeros and the sentence encoding."
-            assert all(len(buf) == 1 for buf in self.bufs), \
-                "Stacks should be fully shifted and have 1 zero."
+        return transition_acc, transition_loss
 
-        return [stack[-1] for stack in self.stacks], transition_acc, transition_loss
-
+    def loss_phase_hook(self):
+        pass
 
     def step(self, inp_transitions, run_internal_parser,
                 use_internal_parser, validate_transitions, t_step):

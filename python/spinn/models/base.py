@@ -294,6 +294,9 @@ def get_flags():
     gflags.DEFINE_boolean("rl_transition_acc_as_reward", False,
                           "Use the transition accuracy as the reward. For debugging only.")
 
+    # Deep settings.
+    gflags.DEFINE_integer("num_spinn_layers", 1, "Specify number of spinn layers.")
+
     # MLP settings.
     gflags.DEFINE_integer("mlp_dim", 1024, "Dimension of intermediate MLP layers.")
     gflags.DEFINE_integer("num_mlp_layers", 2, "Number of MLP layers.")
