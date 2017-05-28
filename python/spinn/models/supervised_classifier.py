@@ -73,6 +73,7 @@ def evaluate(FLAGS, model, data_manager, eval_set, index, logger, step, vocabula
         eval_accumulate(model, data_manager, A, batch)
         A.add('class_correct', pred.eq(target).sum())
         A.add('class_total', target.size(0))
+        A.add('transition_acc', model.transition_acc) # TODO: This is not correct because of different length examples.
 
         # Optionally calculate transition loss/acc.
         model.transition_loss if hasattr(model, 'transition_loss') else None
@@ -83,7 +84,7 @@ def evaluate(FLAGS, model, data_manager, eval_set, index, logger, step, vocabula
         if FLAGS.write_eval_report:
             reporter_args = [pred, target, eval_ids, output.data.cpu().numpy()]
             if hasattr(model, 'transition_loss'):
-                transitions_per_example, _ = model.spinn.get_transitions_per_example(
+                transitions_per_example, _ = model.get_transitions_per_example(
                     style="preds" if FLAGS.eval_report_use_preds else "given")
                 if model.use_sentence_pair:
                     batch_size = pred.size(0)
@@ -236,6 +237,7 @@ def train_loop(FLAGS, data_manager, model, optimizer, trainer,
 
         train_accumulate(model, data_manager, A, batch)
         A.add('class_acc', class_acc)
+        A.add('transition_acc', model.transition_acc)  # TODO: This is not correct because of different length examples.
         A.add('total_tokens', total_tokens)
         A.add('total_time', total_time)
 
@@ -261,14 +263,14 @@ def train_loop(FLAGS, data_manager, model, optimizer, trainer,
                   use_internal_parser=FLAGS.use_internal_parser,
                   validate_transitions=FLAGS.validate_transitions
                   )
-            tr_transitions_per_example, tr_strength = model.spinn.get_transitions_per_example()
+            tr_transitions_per_example, tr_strength = model.get_transitions_per_example()
 
             model.eval()
             model(X_batch, transitions_batch, y_batch,
                   use_internal_parser=FLAGS.use_internal_parser,
                   validate_transitions=FLAGS.validate_transitions
                   )
-            ev_transitions_per_example, ev_strength = model.spinn.get_transitions_per_example()
+            ev_transitions_per_example, ev_strength = model.get_transitions_per_example()
 
             transition_str = "Samples:"
             if model.use_sentence_pair and len(transitions_batch.shape) == 3:

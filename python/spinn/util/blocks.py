@@ -552,7 +552,7 @@ class ReduceTreeLSTM(nn.Module):
             tracker is present.
     """
 
-    def __init__(self, size, tracker_size=None, use_tracking_in_composition=None, composition_ln=True):
+    def __init__(self, size, tracker_size=None, external_size=None, use_tracking_in_composition=None, composition_ln=True):
         super(ReduceTreeLSTM, self).__init__()
         self.composition_ln = composition_ln
         self.left = Linear(initializer=HeKaimingInitializer)(size, 5 * size)
@@ -565,8 +565,13 @@ class ReduceTreeLSTM(nn.Module):
                 tracker_size, 5 * size, bias=False)
             if composition_ln:
                 self.track_ln = LayerNormalization(size)
+        if external_size is not None:
+            self.external = Linear(initializer=HeKaimingInitializer)(
+                external_size, 5 * size, bias=False)
+            if composition_ln:
+                self.external_ln = LayerNormalization(size)
 
-    def forward(self, left_in, right_in, tracking=None):
+    def forward(self, left_in, right_in, tracking=None, external=None):
         """Perform batched TreeLSTM composition.
 
         This implements the REDUCE operation of a SPINN in parallel for a
@@ -595,6 +600,7 @@ class ReduceTreeLSTM(nn.Module):
         """
         left, right = bundle(left_in), bundle(right_in)
         tracking = bundle(tracking)
+        external = bundle(external)
 
         if self.composition_ln:
             lstm_in = self.left(self.left_ln(left.h))
@@ -608,6 +614,13 @@ class ReduceTreeLSTM(nn.Module):
                 lstm_in += self.track(self.track_ln(tracking.h))
             else:
                 lstm_in += self.track(tracking.h)
+
+        if hasattr(self, 'external'):
+            if self.composition_ln:
+                lstm_in += self.external(self.external_ln(external.h))
+            else:
+                lstm_in += self.external(external.h)
+
         out = unbundle(treelstm(left.c, right.c, lstm_in))
         return out
 
