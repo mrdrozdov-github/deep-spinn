@@ -67,7 +67,7 @@ class DeepSPINN(SPINN):
 
 class BaseModel(nn.Module):
     """
-    This model is inspired by `Irsoy and Cardie. Deep Recursive Neural 
+    This model is inspired by `Irsoy and Cardie. Deep Recursive Neural
     Networks for Compositionality in Language. 2014`:
     http://www.cs.cornell.edu/~oirsoy/drsv.htm
 
@@ -154,6 +154,9 @@ class BaseModel(nn.Module):
         embeds = first_layer.embed(example.tokens)
         b, l = example.tokens.size()[:2]
 
+        # HACK: copy throws error on gpu otherwise.
+        example.tokens = example.tokens.cpu().detach()
+
         for i_layer in range(self.num_spinn_layers):
             layer = self.layers[i_layer]
 
@@ -201,7 +204,7 @@ class BaseModel(nn.Module):
 
         self.transition_acc, self.transition_loss = final_layer.spinn.loss_phase(batch_size)
 
-        # 
+        #
 
         h_list = [stack[-1] for stack in final_layer.spinn.stacks]
         h = final_layer.wrap(h_list)
