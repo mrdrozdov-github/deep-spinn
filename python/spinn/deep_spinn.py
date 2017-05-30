@@ -147,7 +147,6 @@ class BaseModel(nn.Module):
 
         first_layer = self.layers[0]
         final_layer = self.layers[-1]
-        embeds = []
         examples = []
 
         # Initialize Input
