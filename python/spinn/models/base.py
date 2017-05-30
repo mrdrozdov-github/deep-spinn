@@ -266,7 +266,7 @@ def get_flags():
                                               "treegru", "tanh"], "Specify composition function.")
 
     # Encode settings.
-    gflags.DEFINE_enum("encode", "projection", [
+    gflags.DEFINE_enum("encode", "pass", [
                        "pass", "projection", "gru", "attn"], "Encode embeddings with sequential context.")
     gflags.DEFINE_boolean("encode_reverse", False, "Encode in reverse order.")
     gflags.DEFINE_boolean("encode_bidirectional", False, "Encode in both directions.")

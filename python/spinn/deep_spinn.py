@@ -8,7 +8,7 @@ import torch.nn as nn
 from torch.autograd import Variable
 import torch.nn.functional as F
 
-from spinn.util.blocks import MLP
+from spinn.util.blocks import MLP, Linear
 from spinn.util.blocks import the_gpu, to_gpu
 from spinn.util.catalan import interpolate
 
@@ -33,6 +33,8 @@ def build_model(data_manager, initial_embeddings, vocab_size,
                 num_classes, FLAGS, context_args, composition_args):
     model_cls = BaseModel
     use_sentence_pair = data_manager.SENTENCE_PAIR_DATA
+
+    assert FLAGS.encode == 'pass', "Doesn't support clever encode techniques yet."
 
     return model_cls(model_dim=FLAGS.model_dim,
                      word_embedding_dim=FLAGS.word_embedding_dim,
@@ -85,6 +87,7 @@ class BaseModel(nn.Module):
 
         # Local Properties
         self.model_dim = kwargs.get('model_dim')
+        self.word_embedding_dim = kwargs.get('word_embedding_dim')
         self.num_spinn_layers = kwargs.get('num_spinn_layers')
 
         # Necessary properties.
@@ -95,8 +98,8 @@ class BaseModel(nn.Module):
         composition_args.composition = None
 
         # Multilayer Init
-
         self.layers = []
+        self.encode_layers = []
         for i_layer in range(self.num_spinn_layers):
             _kwargs = copy.deepcopy(kwargs)
 
@@ -117,11 +120,14 @@ class BaseModel(nn.Module):
             # SPINN Layer
             layer_name = "layer_{}".format(i_layer)
             setattr(self, layer_name, _BaseModel(*args, **_kwargs))
-            self.layers.append(getattr(self, layer_name))
+            layer = getattr(self, layer_name)
+            self.layers.append(layer)
 
             # In Between Layer
-            # layer_name = "layer_inbetween_{}".format(i_layer)
-            # setattr(self, layer_name, nn.Linear(model_dim, model_dim))
+            if i_layer == 0:
+                layer.encode = Linear()(self.word_embedding_dim, self.model_dim)
+            else:
+                layer.encode = Linear()(self.model_dim, self.model_dim)
 
     def get_transitions_per_example(self, style="preds"):
         return self.layers[-1].get_transitions_per_example(style)
@@ -139,15 +145,32 @@ class BaseModel(nn.Module):
 
         assert use_internal_parser == False, "Deep SPINN does not support predicted transitions yet."
 
+        first_layer = self.layers[0]
         final_layer = self.layers[-1]
+        embeds = []
         examples = []
 
         # Initialize Input
+        example = first_layer.unwrap(sentences, transitions)
+        embeds = first_layer.embed(example.tokens)
+        b, l = example.tokens.size()[:2]
+
         for i_layer in range(self.num_spinn_layers):
             layer = self.layers[i_layer]
-            example = layer.forward(sentences, transitions, y_batch, use_internal_parser, validate_transitions, run_spinn=False)
-            example = layer.spinn.forward_init(example)
-            examples.append(example)
+
+            # embeds = layer.reshape_input(embeds, b, l)
+            # embeds = layer.encode(embeds)
+            # embeds = layer.reshape_context(embeds, b, l)
+
+            embeds = layer.encode(embeds)
+
+            _embeds = F.dropout(embeds, layer.embedding_dropout_rate, training=layer.training)
+
+            _example = copy.deepcopy(example)
+            _example.bufs = layer.build_buffers(_embeds, b, l)
+            _example = layer.spinn.forward_init(_example)
+
+            examples.append(_example)
 
         inp_transitions = examples[-1].transitions
         batch_size = inp_transitions.shape[0]

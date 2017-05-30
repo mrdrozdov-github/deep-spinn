@@ -631,6 +631,16 @@ class BaseModel(nn.Module):
     def output_hook(self, output, sentences, transitions, y_batch=None):
         pass
 
+    def build_buffers(self, embeds, batch_size, seq_length):
+        ee = torch.chunk(embeds, batch_size * seq_length, 0)[::-1]
+        bb = []
+        for ii in range(batch_size):
+            ex = list(ee[ii * seq_length:(ii + 1) * seq_length])
+            bb.append(ex)
+        buffers = bb[::-1]
+
+        return buffers
+
     def forward(self, sentences, transitions, y_batch=None,
                 use_internal_parser=False, validate_transitions=True, run_spinn=True):
         example = self.unwrap(sentences, transitions)
@@ -645,16 +655,7 @@ class BaseModel(nn.Module):
         embeds = F.dropout(embeds, self.embedding_dropout_rate, training=self.training)
 
         # Make Buffers
-        # _embeds = torch.chunk(to_cpu(embeds), b, 0)
-        # _embeds = [torch.chunk(x, l, 0) for x in _embeds]
-        # buffers = [list(reversed(x)) for x in _embeds]
-        ee = torch.chunk(embeds, b * l, 0)[::-1]
-        bb = []
-        for ii in range(b):
-            ex = list(ee[ii * l:(ii + 1) * l])
-            bb.append(ex)
-        buffers = bb[::-1]
-
+        buffers = self.build_buffers(embeds, b, l)
         example.bufs = buffers
 
         if run_spinn:
