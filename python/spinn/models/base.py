@@ -296,6 +296,7 @@ def get_flags():
 
     # Deep settings.
     gflags.DEFINE_integer("num_spinn_layers", 1, "Specify number of spinn layers.")
+    gflags.DEFINE_boolean("deep_nonlinear", False, "Use nonlinearities between encoded inputs.")
 
     # MLP settings.
     gflags.DEFINE_integer("mlp_dim", 1024, "Dimension of intermediate MLP layers.")

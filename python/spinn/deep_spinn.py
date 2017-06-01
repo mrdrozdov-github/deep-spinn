@@ -10,7 +10,6 @@ import torch.nn.functional as F
 
 from spinn.util.blocks import MLP, Linear
 from spinn.util.blocks import the_gpu, to_gpu
-from spinn.util.catalan import interpolate
 
 from spinn.spinn_core_model import BaseModel as _BaseModel
 from spinn.spinn_core_model import SPINN
@@ -58,6 +57,7 @@ def build_model(data_manager, initial_embeddings, vocab_size,
                      context_args=context_args,
                      composition_args=composition_args,
                      num_spinn_layers=FLAGS.num_spinn_layers,
+                     deep_nonlinear=FLAGS.deep_nonlinear,
                      )
 
 
@@ -89,6 +89,7 @@ class BaseModel(nn.Module):
         self.model_dim = kwargs.get('model_dim')
         self.word_embedding_dim = kwargs.get('word_embedding_dim')
         self.num_spinn_layers = kwargs.get('num_spinn_layers')
+        self.use_relu = kwargs.get('deep_nonlinear')
 
         # Necessary properties.
         self.use_sentence_pair = kwargs.get('use_sentence_pair')
@@ -164,7 +165,10 @@ class BaseModel(nn.Module):
             # embeds = layer.encode(embeds)
             # embeds = layer.reshape_context(embeds, b, l)
 
-            embeds = layer.encode(embeds)
+            if self.use_relu and i_layer > 0:
+                embeds = layer.encode(F.relu(embeds))
+            else:
+                embeds = layer.encode(embeds)
 
             _embeds = F.dropout(embeds, layer.embedding_dropout_rate, training=layer.training)
 
