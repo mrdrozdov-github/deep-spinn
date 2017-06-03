@@ -11,8 +11,7 @@ from spinn.util.misc import time_per_token
 
 
 def train_accumulate(model, data_manager, A, batch):
-
-    X_batch, transitions_batch, y_batch, num_transitions_batch, train_ids = batch
+    pass
 
 
 def train_metrics(M, stats_args, step):
@@ -67,8 +66,7 @@ def train_extra_format(model):
 
 
 def eval_accumulate(model, data_manager, A, batch):
-
-    X_batch, transitions_batch, y_batch, num_transitions_batch, train_ids = batch
+    pass
 
 
 def eval_format(model):

@@ -46,7 +46,7 @@ def log_path(FLAGS, load=False):
 
 
 def get_batch(batch):
-    X_batch, transitions_batch, y_batch, num_transitions_batch, example_ids = batch
+    X_batch, transitions_batch, y_batch, num_transitions_batch = batch
 
     # Truncate each batch to max length within the batch.
     X_batch_is_left_padded = sequential_only()
@@ -59,7 +59,7 @@ def get_batch(batch):
     transitions_batch = truncate(transitions_batch, seq_length,
                                  max_length, transitions_batch_is_left_padded)
 
-    return X_batch, transitions_batch, y_batch, num_transitions_batch, example_ids
+    return X_batch, transitions_batch, y_batch, num_transitions_batch
 
 
 def truncate(data, seq_length, max_length, left_padded):
@@ -162,6 +162,7 @@ def load_data_and_embeddings(FLAGS, data_manager, logger, training_data_path, ev
         raw_training_data, vocabulary, FLAGS.seq_length, data_manager, eval_mode=False, logger=logger,
         sentence_pair_data=data_manager.SENTENCE_PAIR_DATA,
         for_rnn=sequential_only())
+    logger.Log("Training data iterator.")
     training_data_iter = util.MakeTrainingIterator(
         training_data, FLAGS.batch_size, FLAGS.smart_batching, FLAGS.use_peano,
         sentence_pair_data=data_manager.SENTENCE_PAIR_DATA)
@@ -176,6 +177,7 @@ def load_data_and_embeddings(FLAGS, data_manager, logger, training_data_path, ev
             data_manager, eval_mode=True, logger=logger,
             sentence_pair_data=data_manager.SENTENCE_PAIR_DATA,
             for_rnn=sequential_only())
+        logger.Log("Eval data iterator.")
         eval_it = util.MakeEvalIterator(eval_data,
                                         FLAGS.batch_size, FLAGS.eval_data_limit, bucket_eval=FLAGS.bucket_eval,
                                         shuffle=FLAGS.shuffle_eval, rseed=FLAGS.shuffle_eval_seed)

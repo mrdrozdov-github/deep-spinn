@@ -56,7 +56,7 @@ def evaluate(FLAGS, model, data_manager, eval_set, index, logger, step, vocabula
     model.eval()
     for i, dataset_batch in enumerate(dataset):
         batch = get_batch(dataset_batch)
-        eval_X_batch, eval_transitions_batch, eval_y_batch, eval_num_transitions_batch, eval_ids = batch
+        eval_X_batch, eval_transitions_batch, eval_y_batch, eval_num_transitions_batch = batch
 
         # Run model.
         output = model(eval_X_batch, eval_transitions_batch, eval_y_batch,
@@ -80,21 +80,6 @@ def evaluate(FLAGS, model, data_manager, eval_set, index, logger, step, vocabula
 
         # Update Aggregate Accuracies
         total_tokens += sum([(nt + 1) / 2 for nt in eval_num_transitions_batch.reshape(-1)])
-
-        if FLAGS.write_eval_report:
-            reporter_args = [pred, target, eval_ids, output.data.cpu().numpy()]
-            if hasattr(model, 'transition_loss'):
-                transitions_per_example, _ = model.get_transitions_per_example(
-                    style="preds" if FLAGS.eval_report_use_preds else "given")
-                if model.use_sentence_pair:
-                    batch_size = pred.size(0)
-                    sent1_transitions = transitions_per_example[:batch_size]
-                    sent2_transitions = transitions_per_example[batch_size:]
-                    reporter_args.append(sent1_transitions)
-                    reporter_args.append(sent2_transitions)
-                else:
-                    reporter_args.append(transitions_per_example)
-            reporter.save_batch(*reporter_args)
 
         # Print Progress
         progress_bar.step(i + 1, total=total_batches)
@@ -137,7 +122,7 @@ def train_loop(FLAGS, data_manager, model, optimizer, trainer,
 
     # Build log format strings.
     model.train()
-    X_batch, transitions_batch, y_batch, num_transitions_batch, train_ids = get_batch(
+    X_batch, transitions_batch, y_batch, num_transitions_batch = get_batch(
         training_data_iter.next())
     model(X_batch, transitions_batch, y_batch,
           use_internal_parser=FLAGS.use_internal_parser,
@@ -175,7 +160,7 @@ def train_loop(FLAGS, data_manager, model, optimizer, trainer,
         start = time.time()
 
         batch = get_batch(training_data_iter.next())
-        X_batch, transitions_batch, y_batch, num_transitions_batch, train_ids = batch
+        X_batch, transitions_batch, y_batch, num_transitions_batch = batch
 
         total_tokens = sum([(nt + 1) / 2 for nt in num_transitions_batch.reshape(-1)])
 

@@ -375,6 +375,7 @@ def PreprocessDataset(dataset, vocabulary, seq_length, data_manager, eval_mode=F
         dataset = CropAndPad(dataset, seq_length, logger=logger,
                              sentence_pair_data=sentence_pair_data)
 
+    logger.Log("Building tokens and transitions.")
     if sentence_pair_data:
         X = np.transpose(np.array([[example["premise_tokens"] for example in dataset],
                                    [example["hypothesis_tokens"] for example in dataset]],
@@ -384,7 +385,7 @@ def PreprocessDataset(dataset, vocabulary, seq_length, data_manager, eval_mode=F
             num_transitions = np.transpose(np.array(
                 [[len(np.array(example["premise_tokens"]).nonzero()[0]) for example in dataset],
                  [len(np.array(example["hypothesis_tokens"]).nonzero()[0]) for example in dataset]],
-                dtype=np.int32), (1, 0))
+                dtype=np.int8), (1, 0))
         else:
             transitions = np.transpose(np.array([[example["premise_transitions"] for example in dataset],
                                                  [example["hypothesis_transitions"] for example in dataset]],
@@ -392,7 +393,7 @@ def PreprocessDataset(dataset, vocabulary, seq_length, data_manager, eval_mode=F
             num_transitions = np.transpose(np.array(
                 [[example["num_premise_transitions"] for example in dataset],
                  [example["num_hypothesis_transitions"] for example in dataset]],
-                dtype=np.int32), (1, 0))
+                dtype=np.int8), (1, 0))
     else:
         X = np.array([example["tokens"] for example in dataset],
                      dtype=np.int32)
@@ -406,15 +407,17 @@ def PreprocessDataset(dataset, vocabulary, seq_length, data_manager, eval_mode=F
                                    dtype=np.int32)
             num_transitions = np.array(
                 [example["num_transitions"] for example in dataset],
-                dtype=np.int32)
+                dtype=np.int8)
+
+    logger.Log("Building labels.")
     y = np.array(
         [data_manager.LABEL_MAP[example["label"]] for example in dataset],
         dtype=np.int32)
 
     # NP Array of Strings
-    example_ids = np.array([example["example_id"] for example in dataset])
+    # example_ids = np.array([example["example_id"] for example in dataset])
 
-    return X, transitions, y, num_transitions, example_ids
+    return X, transitions, y, num_transitions
 
 
 def BuildVocabulary(raw_training_data, raw_eval_sets, embedding_path,
