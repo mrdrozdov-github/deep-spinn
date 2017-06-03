@@ -142,7 +142,7 @@ class SPINN(nn.Module):
                     tinp_size = self.tracker.state_size
                 self.transition_net = nn.Linear(tinp_size, 2)
 
-        self.choices = np.array([T_SHIFT, T_REDUCE], dtype=np.int32)
+        self.choices = np.asarray([T_SHIFT, T_REDUCE], dtype=np.int32)
 
         self.shift_probabilities = ShiftProbabilities()
 
@@ -236,7 +236,7 @@ class SPINN(nn.Module):
         buf_adjust = 1 if zero_padded else 0
         stack_adjust = 2 if zero_padded else 0
 
-        _transitions = np.array(transitions)
+        _transitions = np.asarray(transitions)
         _preds = preds.copy()
         _invalid = np.zeros(preds.shape, dtype=np.bool)
 
@@ -251,13 +251,13 @@ class SPINN(nn.Module):
         stack_lens = [len(stack) - stack_adjust for stack in stacks]
 
         # Cannot reduce on too small a stack
-        must_shift = np.array([length < 2 for length in stack_lens])
+        must_shift = np.asarray([length < 2 for length in stack_lens])
         check_mask = np.logical_and(cant_skip, must_shift)
         _invalid += np.logical_and(_preds != T_SHIFT, check_mask)
         _preds[must_shift] = T_SHIFT
 
         # Cannot shift on too small buf
-        must_reduce = np.array([length < 1 for length in buf_lens])
+        must_reduce = np.asarray([length < 1 for length in buf_lens])
         check_mask = np.logical_and(cant_skip, must_reduce)
         _invalid += np.logical_and(_preds != T_REDUCE, check_mask)
         _preds[must_reduce] = T_REDUCE
@@ -397,8 +397,8 @@ class SPINN(nn.Module):
         transition_arr = list(transitions)
 
         # A mask based on SKIP transitions.
-        cant_skip = np.array(transitions) != T_SKIP
-        must_skip = np.array(transitions) == T_SKIP
+        cant_skip = np.asarray(transitions) != T_SKIP
+        must_skip = np.asarray(transitions) == T_SKIP
 
         # Prepare tracker input.
         if self.debug and any(len(buf) < 1 or len(stack)
@@ -517,10 +517,10 @@ class SPINN(nn.Module):
         self.memories.append(self.memory)
 
         # Update number of reduces seen so far.
-        self.n_reduces += (np.array(transition_arr) == T_REDUCE)
+        self.n_reduces += (np.asarray(transition_arr) == T_REDUCE)
 
         # Update number of non-skip actions seen so far.
-        self.n_steps += (np.array(transition_arr) != T_SKIP)
+        self.n_steps += (np.asarray(transition_arr) != T_SKIP)
 
 
 class BaseModel(nn.Module):

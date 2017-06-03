@@ -135,9 +135,12 @@ def CropAndPadExample(example, left_padding, target_length, key, symbol=0, logge
         # for every single one.
         example[key] = example[key][-left_padding:]
         left_padding = 0
-    right_padding = target_length - (left_padding + len(example[key]))
-    example[key] = ([symbol] * left_padding) + \
-        example[key] + ([symbol] * right_padding)
+    # right_padding = target_length - (left_padding + len(example[key]))
+    data = example[key]
+    example[key] = [symbol] * target_length
+    example[key][left_padding:left_padding + len(data)] = data
+    #    example[key] = ([symbol] * left_padding) + \
+    #        example[key] + ([symbol] * right_padding)
 
 
 def CropAndPad(dataset, length, logger=None, sentence_pair_data=False):
@@ -219,7 +222,7 @@ def MakeTrainingIterator(sources, batch_size, smart_batches=True, use_peano=True
         dataset_size = len(sources[0])
         order = range(dataset_size)
         random.shuffle(order)
-        order = np.array(order)
+        order = np.asarray(order)
 
         num_splits = 10  # TODO: Should we be smarter about split size?
         order_limit = len(order) / num_splits * num_splits
@@ -377,40 +380,40 @@ def PreprocessDataset(dataset, vocabulary, seq_length, data_manager, eval_mode=F
 
     logger.Log("Building tokens and transitions.")
     if sentence_pair_data:
-        X = np.transpose(np.array([[example["premise_tokens"] for example in dataset],
+        X = np.transpose(np.asarray([[example["premise_tokens"] for example in dataset],
                                    [example["hypothesis_tokens"] for example in dataset]],
                                   dtype=np.int32), (1, 2, 0))
         if for_rnn:
             transitions = np.zeros((len(dataset), 2, 0))
-            num_transitions = np.transpose(np.array(
-                [[len(np.array(example["premise_tokens"]).nonzero()[0]) for example in dataset],
-                 [len(np.array(example["hypothesis_tokens"]).nonzero()[0]) for example in dataset]],
-                dtype=np.int8), (1, 0))
+            num_transitions = np.transpose(np.asarray(
+                [[len(np.asarray(example["premise_tokens"]).nonzero()[0]) for example in dataset],
+                 [len(np.asarray(example["hypothesis_tokens"]).nonzero()[0]) for example in dataset]],
+                dtype=np.int32), (1, 0))
         else:
-            transitions = np.transpose(np.array([[example["premise_transitions"] for example in dataset],
+            transitions = np.transpose(np.asarray([[example["premise_transitions"] for example in dataset],
                                                  [example["hypothesis_transitions"] for example in dataset]],
                                                 dtype=np.int32), (1, 2, 0))
-            num_transitions = np.transpose(np.array(
+            num_transitions = np.transpose(np.asarray(
                 [[example["num_premise_transitions"] for example in dataset],
                  [example["num_hypothesis_transitions"] for example in dataset]],
-                dtype=np.int8), (1, 0))
+                dtype=np.int32), (1, 0))
     else:
-        X = np.array([example["tokens"] for example in dataset],
+        X = np.asarray([example["tokens"] for example in dataset],
                      dtype=np.int32)
         if for_rnn:
             transitions = np.zeros((len(dataset), 0))
-            num_transitions = np.array(
-                [len(np.array(example["tokens"]).nonzero()[0]) for example in dataset],
+            num_transitions = np.asarray(
+                [len(np.asarray(example["tokens"]).nonzero()[0]) for example in dataset],
                 dtype=np.int32)
         else:
-            transitions = np.array([example["transitions"] for example in dataset],
+            transitions = np.asarray([example["transitions"] for example in dataset],
                                    dtype=np.int32)
-            num_transitions = np.array(
+            num_transitions = np.asarray(
                 [example["num_transitions"] for example in dataset],
-                dtype=np.int8)
+                dtype=np.int32)
 
     logger.Log("Building labels.")
-    y = np.array(
+    y = np.asarray(
         [data_manager.LABEL_MAP[example["label"]] for example in dataset],
         dtype=np.int32)
 
